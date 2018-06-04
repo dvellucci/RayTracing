@@ -3,11 +3,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-class Pixel
+class Light
 {
 public:
-	Pixel() : m_pos(glm::vec3(0.0f, 0.0f, 0.0f)) {};
-	~Pixel() {};
+	Light() {};
+	~Light() {};
 
 	glm::vec3 m_pos;
 	glm::vec3 m_color;

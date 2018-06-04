@@ -12,7 +12,6 @@ FileReader::FileReader(std::string filePath)
 			m_fileInputLines.push_back(fileLine);
 		}
 	}
-
 }
 
 FileReader::~FileReader()
@@ -52,23 +51,23 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			float ar;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &ar);
 
-			if (abs(ar - float(4) / 3) < ASPECT_EPSILON)
+			if (abs(ar - float(4) / 3) < ASPECT_EPSILON) 
 			{
-				ar = (4 / 3);
+				ar = float(4) / 3;
 			}
-			else if (abs(ar - float(16) / 9) < ASPECT_EPSILON)
+			if (abs(ar - float(16) / 9) < ASPECT_EPSILON) 
 			{
-				ar = (16 / 9);
+				ar = float(16) / 9;
 			}
-			else if (abs(ar - float(64) / 27) < ASPECT_EPSILON)
+			if (abs(ar - float(64) / 27) < ASPECT_EPSILON) 
 			{
-				ar = (64 / 27);
+				ar = float(64) / 27;
 			}
-
+			camera->m_aspectRatio = ar;
 			//make the camera in the scene
 			scene->m_camera = camera;
 		}
-		if (m_fileInputLines[i] == "sphere")
+		else if (m_fileInputLines[i] == "sphere")
 		{
 			auto sphere = std::make_shared<Sphere>();
 
@@ -86,6 +85,22 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 
 			//add the new sphere to the scene
 			scene->m_spheres.push_back(sphere);
+		}
+		else if (m_fileInputLines[i] == "light")
+		{
+			auto light = std::make_shared<Light>();
+
+			i++;
+			glm::vec3 lightPos;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &lightPos.x, &lightPos.y, &lightPos.z);
+			light->m_pos = lightPos;
+
+			i++;
+			glm::vec3 lightColor;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &lightColor.x, &lightColor.y, &lightColor.z);
+			light->m_color = lightColor;
+
+			scene->m_lights.push_back(light);
 		}
 	}
 

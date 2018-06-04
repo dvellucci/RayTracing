@@ -11,6 +11,7 @@ public:
 	~Image() {};
 
 	std::vector <std::shared_ptr<Pixel>> m_pixels;
-private:
+
 	int m_width, m_height;
+private:
 };

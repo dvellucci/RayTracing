@@ -12,9 +12,9 @@ public:
 	glm::vec3 getOrigin() const { return m_origin; }
 	glm::vec3 getDirection() const { return m_dir; }
 	glm::vec3 pointAtparameter(float t) const { return m_origin + t * m_dir; }
-private:
 
-	//the ray's origin and direction used in parametric form function
 	glm::vec3 m_origin;
 	glm::vec3 m_dir;
+private:
+
 };
