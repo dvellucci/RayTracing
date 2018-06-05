@@ -13,12 +13,12 @@ public:
 	bool hit(std::shared_ptr<Ray> ray, float &t, glm::vec3& norm) override;
 	void setCenter(glm::vec3 center) { m_center = center; }
 	void setRadius(float radius) { m_radius = radius; }
+
 	float getRadius() const { return m_radius; }
 	glm::vec3 getCenter() const { return m_center; }
 
+private:
+
 	float m_radius;
 	glm::vec3 m_center;
-
-private:
-	
 };

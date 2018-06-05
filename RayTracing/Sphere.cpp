@@ -18,18 +18,11 @@ bool Sphere::hit(std::shared_ptr<Ray> ray, float &t, glm::vec3& norm)
 	float c = glm::dot(oc, oc) - m_radius* m_radius;
 	float discriminant = b * b - a*c;
 
-
-	float discr = b * b - 4 * a * c;
-	if (discr < 0) return false;
-	else if (discr == 0) x0 = x1 = -0.5 * b / a;
-	else {
-		float q = (b > 0) ?
-			-0.5 * (b + sqrt(discr)) :
-			-0.5 * (b - sqrt(discr));
-		x0 = q / a;
-		x1 = c / q;
+	//stop if the quadratic cannot be solved
+	if (!quadratic(a, b, c, x0, x1))
+	{
+		return false;
 	}
-	if (x0 > x1) std::swap(x0, x1);
 
 	t = x0;
 
