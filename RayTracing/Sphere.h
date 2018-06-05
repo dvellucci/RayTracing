@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <memory>
 #include "Surface.h"
 class Sphere : public Surface
 {
@@ -9,7 +10,7 @@ public:
 	Sphere();
 	~Sphere();
 	
-	bool hit(const Ray& ray, float t_min, float t_max, surface_data& data) const;
+	bool hit(std::shared_ptr<Ray> ray, float &t, glm::vec3& norm) override;
 	void setCenter(glm::vec3 center) { m_center = center; }
 	void setRadius(float radius) { m_radius = radius; }
 	float getRadius() const { return m_radius; }

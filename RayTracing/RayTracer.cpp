@@ -105,45 +105,43 @@ bool RayTracer::solveQuadratic(const float & a, const float & b, const float & c
 	return true;
 }
 
-bool RayTracer::trace(const Ray & ray, std::shared_ptr<Scene> scene, surface_data& data, float t_min, float t_max)
-{
-	surface_data tempData;
-	double closest = t_max;
-	bool hit = false;
-
-	//check sphere intersections
-	for (int i = 0; i < scene->m_spheres.size(); i++)
-	{
-		if (scene->m_spheres[i]->hit(ray, t_min, closest, tempData))
-		{
-			hit = true;
-			closest = tempData.m_t;
-			data = tempData;
-		}
-	}
-	return hit;
-}
-
 glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scene, int depth)
 {
 	if (depth > DMAX)
 		return scene->backgroundColor;
 
 	float t;
-	float tmin = std::numeric_limits<float>::max();
+	float tmin = FLT_MAX;
 	glm::vec3 n, norm;
+	std::shared_ptr<Surface> surface;
 
-	for (int i = 0, m = scene->m_spheres.size(); i < m; ++i) {
-		if (intersectSphere(ray, scene->m_spheres[i], t, n)) {
+	for (int i = 0, m = scene->m_spheres.size(); i < m; ++i)
+	{
+		std::shared_ptr<Surface> sphere = scene->m_spheres[i];
+		if (intersectSphere(ray, scene->m_spheres[i], t, n)) 
+		{
 			if (t < tmin) {
 				tmin = t;
 				norm = n;
-				//obj = scene->spheres[i];
+				surface = scene->m_spheres[i];
 			}
 		}
 	}
 
-	if (abs(tmin - std::numeric_limits<float>::max()) < EPSILON) 
+	//for(int i = 0, m = scene->m_spheres.size(); i < m; ++i)
+	//{
+	//	auto sphere = scene->m_spheres[i];
+	//	if (sphere->hit(ray, t, n))
+	//	{
+	//		if (t < tmin)
+	//		{
+	//			tmin = t;
+	//			norm = n;
+	//		}
+	//	}
+	//}
+
+	if (abs(tmin - FLT_MAX) < EPSILON) 
 	{
 		return scene->backgroundColor;
 	}
@@ -155,16 +153,75 @@ glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scen
 	glm::vec3 reflectDir = 2 * glm::dot(-ray->getDirection(), norm) * norm - (-ray->getDirection());
 	glm::vec3 offsetOrig = intersection + 0.1f * reflectDir;
 	auto reflectRay = std::make_shared<Ray>(offsetOrig, reflectDir);
-	glm::vec3 color = globalReflectivity * trace(reflectRay, scene, depth + 1);
+	glm::vec3 color = (1 - globalReflectivity) * lightColor(scene, intersection, surface, norm, -ray->getDirection()) +
+		globalReflectivity * trace(reflectRay, scene, depth + 1);
 
 	return color;
+}
+
+glm::vec3 RayTracer::lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersection, std::shared_ptr<Surface> surface,
+	glm::vec3 norm, glm::vec3 v)
+{		
+	glm::vec3 color = surface->getAmbience();
+	for (auto light : scene->m_lights)
+	{
+		float t;
+		float tmin = glm::distance(light->getPosition(), intersection);
+		glm::vec3 n;
+		bool shadowed = false;
+		glm::vec3 shadowDir = glm::normalize(light->getPosition() - intersection);
+
+		float o = 0.1;
+		glm::vec3 origOffset = o * shadowDir;
+
+		auto ray = std::make_shared<Ray>(intersection + origOffset, shadowDir);
+
+		for (int i = 0, m = scene->m_spheres.size(); i < m; ++i) 
+		{
+			if (intersectSphere(ray, scene->m_spheres[i], t, n)) 
+			{
+				if (t < tmin) 
+				{
+					shadowed = true;
+					break;
+				}
+			}
+		}
+
+		//calculate phong lighting
+		if (!shadowed)
+		{
+			color += calculatePhong(light, ray, surface, norm, v);
+		}
+
+	}
+
+	glm::vec3 clamp = glm::vec3(glm::min(1.0f, color.r), glm::min(1.0f, color.g), glm::min(1.0f, color.b));
+	return color;
+}
+
+glm::vec3 RayTracer::calculatePhong(std::shared_ptr<Light> light, std::shared_ptr<Ray> ray, std::shared_ptr<Surface> surface, glm::vec3 norm, glm::vec3 v)
+{
+	glm::vec3 l = ray->getDirection();
+	glm::vec3 r = 2 * glm::dot(l, norm) * norm - l;
+
+	float ldotn = glm::dot(l, norm);
+	float reflectDot = glm::dot(r, v);
+
+	glm::vec3 spec = surface->getSpecular() * pow(glm::max(0.0f, reflectDot), surface->getShiny());
+	glm::vec3 dif = surface->getDiffuse() * abs(ldotn);
+
+	glm::vec3 nothing = glm::vec3(0.0f);
+	glm::vec3 color = light->getColor() * (dif + spec);
+
+	return color; 
 }
 
 std::vector<std::shared_ptr<Ray>> RayTracer::generateRays(std::shared_ptr<Scene> scene, std::shared_ptr<Pixel> pixel)
 {
 	std::vector<std::shared_ptr<Ray>> rays;
-	glm::vec3 direction = glm::normalize(pixel->m_pos - scene->m_camera->m_pos);
-	rays.push_back(std::make_shared<Ray>(scene->m_camera->m_pos, direction));
+	glm::vec3 direction = glm::normalize(pixel->m_pos - scene->m_camera->getPosition());
+	rays.push_back(std::make_shared<Ray>(scene->m_camera->getPosition(), direction));
 
 	return rays;
 }
@@ -174,11 +231,6 @@ std::shared_ptr<Image> RayTracer::render(std::shared_ptr<Scene> scene, int x, in
 	auto image = genImagePixels(scene, x, y);
 
 	int size = image->m_width * image->m_height;
-
-	//for (int i = 0; i < size; i++)
-	//{
-	//	traceSection(image->m_pixels, 0, size, scene);
-	//}
 
 	std::thread t0(traceSection, image->m_pixels, 0, size / 8, scene);
 	std::thread t1(traceSection, image->m_pixels, size / 8, size / 8, scene);
@@ -197,26 +249,26 @@ std::shared_ptr<Image> RayTracer::render(std::shared_ptr<Scene> scene, int x, in
 	t6.join();
 	t7.join();
 
-
 	return image;
 }
 
-//returns the image with the pixel settings f
+//returns the image with the pixel dimensions set
 std::shared_ptr<Image> RayTracer::genImagePixels(std::shared_ptr<Scene>& scene, int resW, int resH)
 {
 	std::vector<std::shared_ptr<Pixel>> pixels;
 
-	float height = 2 * scene->m_camera->m_focalLength * tan((scene->m_camera->m_fov / 2.0f) * M_PI / 180.0f);
-	float width = scene->m_camera->m_aspectRatio * height;
+	float height = 2 * scene->m_camera->getFocalLength() * tan((scene->m_camera->getFOV() / 2.0f) * M_PI / 180.0f);
+	float width = scene->m_camera->getAspectRatio() * height;
 
 	float pixelWidth = width / resW;
 	float pixelHeight = height / resH;
 
-	glm::vec3 iCenter = glm::vec3(scene->m_camera->m_pos.x, scene->m_camera->m_pos.y, scene->m_camera->m_pos.z - scene->m_camera->m_focalLength);
+	glm::vec3 iCenter = glm::vec3(scene->m_camera->getPosition().x, scene->m_camera->getPosition().y, 
+		scene->m_camera->getPosition().z - scene->m_camera->getFocalLength());
 
-	for (int y = 0; y < resW; ++y)
+	for (int y = 0; y < resH; ++y)
 	{
-		for (int x = 0; x < resH; ++x)
+		for (int x = 0; x < resW; ++x)
 		{
 			glm::vec3 pixelPos = {
 				(iCenter.x - width / 2) + (pixelWidth / 2) + (x * pixelWidth),

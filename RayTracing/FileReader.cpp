@@ -32,19 +32,19 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			i++;
 			glm::vec3 pos;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &pos.x, &pos.y, &pos.z);
-			camera->m_pos = pos;
+			camera->setPosition(pos);
 
 			//next line - get camera fov
 			i++;
 			float fov;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &fov);
-			camera->m_fov = fov;
+			camera->setFOV(fov);
 
 			//next line - get focal length
 			i++;
 			float fl;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &fl);
-			camera->m_focalLength = fl;
+			camera->setFocalLength(fl);
 
 			//next line - get aspect ratio
 			i++;
@@ -63,7 +63,8 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			{
 				ar = float(64) / 27;
 			}
-			camera->m_aspectRatio = ar;
+			camera->setAspectRatio(ar);
+
 			//make the camera in the scene
 			scene->m_camera = camera;
 		}
@@ -83,6 +84,31 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &radius);
 			sphere->setRadius(radius);
 
+			//set ambience
+			i++;
+			glm::vec3 amb;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &amb.x, &amb.y, &amb.z);
+			sphere->setAmbience(amb);
+
+			//set diffuse
+			i++;
+			glm::vec3 diffuse;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &diffuse.x, &diffuse.y, &diffuse.z);
+			sphere->setDiffuse(diffuse);
+
+			//set specular
+			i++;
+			glm::vec3 spec;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &spec.x, &spec.y, &spec.z);
+			sphere->setSpecular(spec);
+
+			//set shininess
+			i++;
+			float shiny;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &shiny);
+			sphere->setShiny(shiny);
+
+
 			//add the new sphere to the scene
 			scene->m_spheres.push_back(sphere);
 		}
@@ -93,12 +119,12 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			i++;
 			glm::vec3 lightPos;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &lightPos.x, &lightPos.y, &lightPos.z);
-			light->m_pos = lightPos;
+			light->setPosition(lightPos);
 
 			i++;
 			glm::vec3 lightColor;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &lightColor.x, &lightColor.y, &lightColor.z);
-			light->m_color = lightColor;
+			light->setColor(lightColor);
 
 			scene->m_lights.push_back(light);
 		}
