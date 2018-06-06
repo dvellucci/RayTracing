@@ -28,7 +28,6 @@ void RayTracer::traceSection(std::vector<std::shared_ptr<Pixel>> pixels, int sta
 			traces.push_back(trace(ray, scene, 0));
 		}
 
-
 		pixels[i]->m_color = average(traces);
 	}
 }
@@ -41,33 +40,11 @@ glm::vec3 RayTracer::average(std::vector<glm::vec3> traces)
 		g += trace.g;
 		b += trace.b;
 	}
-	int s = traces.size();
+	size_t s = traces.size();
 	r /= s;
 	g /= s;
 	b /= s;
 	return glm::vec3(r, g, b);
-}
-
-bool RayTracer::solveQuadratic(const float & a, const float & b, const float & c, float & x0, float & x1)
-{
-	float discr = b * b - 4 * a * c;
-	if (discr < 0) return false;
-	else if (discr == 0) x0 = x1 = -0.5 * b / a;
-	else {
-		float q = (b > 0) ?
-			-0.5 * (b + sqrt(discr)) :
-			-0.5 * (b - sqrt(discr));
-		x0 = q / a;
-		x1 = c / q;
-	}
-	if (x0 > x1) std::swap(x0, x1);
-
-	if (x0 < 0) {
-		x0 = x1; 
-		if (x0 < 0) return false; 
-	}
-
-	return true;
 }
 
 glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scene, int depth)
@@ -80,7 +57,8 @@ glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scen
 	glm::vec3 n, norm;
 	std::shared_ptr<Surface> surface;
 
-	for(int i = 0, m = scene->m_spheres.size(); i < m; ++i)
+	//intersect the spheres
+	for(int i = 0; i < scene->m_spheres.size(); i++)
 	{
 		auto sphere = scene->m_spheres[i];
 		if (sphere->hit(ray, t, n))
@@ -89,7 +67,22 @@ glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scen
 			{
 				tmin = t;
 				norm = n;
-				surface = scene->m_spheres[i];
+				surface = sphere;
+			}
+		}
+	}
+
+	//intersect the planes
+	for (int i = 0; i < scene->m_planes.size(); i++)
+	{
+		auto plane = scene->m_planes[i];
+		if (plane->hit(ray, t, n))
+		{
+			if (t < tmin)
+			{
+				tmin = t;
+				norm = n;
+				surface = plane;
 			}
 		}
 	}
@@ -118,12 +111,12 @@ glm::vec3 RayTracer::lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersec
 		bool shadowed = false;
 		glm::vec3 shadowDir = glm::normalize(light->getPosition() - intersection);
 
-		float o = 0.1;
+		float o = 0.1f;
 		glm::vec3 origOffset = o * shadowDir;
 
 		auto ray = std::make_shared<Ray>(intersection + origOffset, shadowDir);
 
-		for (int i = 0; i < scene->m_spheres.size(); ++i) 
+		for (int i = 0; i < scene->m_spheres.size(); i++) 
 		{
 			auto sphere = scene->m_spheres[i];
 			if (sphere->hit(ray, t, n)) 
@@ -136,7 +129,20 @@ glm::vec3 RayTracer::lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersec
 			}
 		}
 
-		//calculate phong lighting
+		for (int i = 0; i < scene->m_planes.size(); i++)
+		{
+			auto plane = scene->m_planes[i];
+			if (plane->hit(ray, t, n))
+			{
+				if (t < tmin)
+				{
+					shadowed = true;
+					break;
+				}
+			}
+		}
+
+		//calculate phong lighting if something is not shadowed
 		if (!shadowed)
 		{
 			color += calculatePhong(light, ray, surface, norm, rayDir);
@@ -147,6 +153,7 @@ glm::vec3 RayTracer::lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersec
 	return color;
 }
 
+//calculate the phong lighting for each ray intersection
 glm::vec3 RayTracer::calculatePhong(std::shared_ptr<Light> light, std::shared_ptr<Ray> ray,
 	std::shared_ptr<Surface> surface, glm::vec3 norm, glm::vec3 rayDir)
 {
@@ -164,6 +171,7 @@ glm::vec3 RayTracer::calculatePhong(std::shared_ptr<Light> light, std::shared_pt
 	return color; 
 }
 
+//generates the ray and its direction from each pixel
 std::vector<std::shared_ptr<Ray>> RayTracer::generateRays(std::shared_ptr<Scene> scene, std::shared_ptr<Pixel> pixel)
 {
 	std::vector<std::shared_ptr<Ray>> rays;
@@ -174,22 +182,24 @@ std::vector<std::shared_ptr<Ray>> RayTracer::generateRays(std::shared_ptr<Scene>
 }
 
 //returns the image with the pixel dimensions set
-std::shared_ptr<Image> RayTracer::genImagePixels(std::shared_ptr<Scene>& scene, int resW, int resH)
+std::shared_ptr<Image> RayTracer::genImagePixels(std::shared_ptr<Scene>& scene, int heightResolution)
 {
 	std::vector<std::shared_ptr<Pixel>> pixels;
 
-	float height = 2 * scene->m_camera->getFocalLength() * tan((scene->m_camera->getFOV() / 2.0f) * M_PI / 180.0f);
+	float height = float(2.0f * scene->m_camera->getFocalLength() * tan((scene->m_camera->getFOV() / 2.0f) * M_PI / 180.0f));
 	float width = scene->m_camera->getAspectRatio() * height;
 
-	float pixelWidth = width / resW;
-	float pixelHeight = height / resH;
+	int widthResolution = int(heightResolution * scene->m_camera->getAspectRatio());
+
+	float pixelWidth = width / widthResolution;
+	float pixelHeight = height / heightResolution;
 
 	glm::vec3 iCenter = glm::vec3(scene->m_camera->getPosition().x, scene->m_camera->getPosition().y, 
 		scene->m_camera->getPosition().z - scene->m_camera->getFocalLength());
 
-	for (int y = 0; y < resH; ++y)
+	for (int y = 0; y < heightResolution; ++y)
 	{
-		for (int x = 0; x < resW; ++x)
+		for (int x = 0; x < widthResolution; ++x)
 		{
 			glm::vec3 pixelPos = {
 				(iCenter.x - width / 2) + (pixelWidth / 2) + (x * pixelWidth),
@@ -198,11 +208,11 @@ std::shared_ptr<Image> RayTracer::genImagePixels(std::shared_ptr<Scene>& scene, 
 			};
 
 			auto pixel = std::make_shared<Pixel>();
-			pixel->m_pos = pixelPos;
+ 			pixel->m_pos = pixelPos;
 			pixels.push_back(pixel);
 		}
 	}
 
-	auto image = std::make_shared<Image>(resW, resH, pixels);
+	auto image = std::make_shared<Image>(widthResolution, heightResolution, pixels);
 	return image;
 }

@@ -6,8 +6,6 @@
 #include <memory>
 #include "Scene.h"
 
-#define ASPECT_EPSILON 0.01
-
 class FileReader
 {
 public:

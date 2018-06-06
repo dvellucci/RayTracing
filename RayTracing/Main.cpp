@@ -11,11 +11,11 @@
 #include <thread>
 #include <mutex>
 
-std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int x, int y);
+std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int heightResolution);
 
 int main()
 {
-	FileReader reader("test.txt");
+	FileReader reader("scene_data/test.txt");
 
 	//set resolution
 	int nx = 533;
@@ -29,7 +29,7 @@ int main()
 	auto rayTracer = std::make_shared<RayTracer>();
 
 	//generate the size of the image and the pixels
-	auto image = renderScene(scene, rayTracer, nx, ny);
+	auto image = renderScene(scene, rayTracer, ny);
 
 	//create CImg object
 	cimg_library::CImg<float> cImage(image->m_width, image->m_height, 1, 3, 0);
@@ -49,7 +49,7 @@ int main()
 		}
 	}
 
-	cImage.save("scene.bmp");
+	cImage.save("scene_renders/scene.bmp");
 
 	//render the image with CImg
 	bool window = true;
@@ -65,9 +65,9 @@ int main()
 }
 
 //render the scene with multi threading
-std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int x, int y)
+std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int heightResolution)
 {
-	auto image = tracer->genImagePixels(scene, x, y);
+	auto image = tracer->genImagePixels(scene, heightResolution);
 	int size = image->m_width * image->m_height;
 
 	std::thread t0(&RayTracer::traceSection, tracer, image->m_pixels, 0, size / 8, scene);

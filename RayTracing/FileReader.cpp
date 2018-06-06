@@ -51,18 +51,6 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			float ar;
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &ar);
 
-			if (abs(ar - float(4) / 3) < ASPECT_EPSILON) 
-			{
-				ar = float(4) / 3;
-			}
-			if (abs(ar - float(16) / 9) < ASPECT_EPSILON) 
-			{
-				ar = float(16) / 9;
-			}
-			if (abs(ar - float(64) / 27) < ASPECT_EPSILON) 
-			{
-				ar = float(64) / 27;
-			}
 			camera->setAspectRatio(ar);
 
 			//make the camera in the scene
@@ -108,9 +96,50 @@ std::shared_ptr<Scene> FileReader::setObjectData()
 			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &shiny);
 			sphere->setShiny(shiny);
 
-
 			//add the new sphere to the scene
 			scene->m_spheres.push_back(sphere);
+		}
+		else if (m_fileInputLines[i] == "plane")
+		{
+			auto plane = std::make_shared<Plane>();
+
+			//set the normal
+			i++;
+			glm::vec3 n;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &n.x, &n.y, &n.z);
+			plane->setNormal(n);
+
+			//set plane pos
+			i++;
+			glm::vec3 pos;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &pos.x, &pos.y, &pos.z);
+			plane->setPoint(pos);
+
+			//set ambience
+			i++;
+			glm::vec3 amb;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &amb.x, &amb.y, &amb.z);
+			plane->setAmbience(amb);
+
+			//set diffuse
+			i++;
+			glm::vec3 diff;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &diff.x, &diff.y, &diff.z);
+			plane->setDiffuse(diff);
+
+			//set specular
+			i++;
+			glm::vec3 spec;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f %f %f", &spec.x, &spec.y, &spec.z);
+			plane->setSpecular(spec);
+
+			//set shininess
+			i++;
+			float shiny;
+			sscanf_s(m_fileInputLines[i].c_str(), "%*s %f", &shiny);
+			plane->setShiny(shiny);
+
+			scene->m_planes.push_back(plane);
 		}
 		else if (m_fileInputLines[i] == "light")
 		{
