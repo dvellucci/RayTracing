@@ -17,6 +17,7 @@ public:
 	glm::vec3 getCenter() const { return m_center; }
 
 	bool hit(std::shared_ptr<Ray> ray, float &t, glm::vec3& norm) override;
+	bool quadratic(const float & a, const float & b, const float & c, float & x0, float & x1);
 
 private:
 

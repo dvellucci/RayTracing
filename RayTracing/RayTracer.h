@@ -10,21 +10,22 @@
 #include <memory>
 #include <iostream>
 
+#define M_PI 3.14159265
+
 class RayTracer
 {
 public:
 	RayTracer();
 	~RayTracer();
 
+	//generates the window that the image will be rendered on
 	std::shared_ptr<Image> genImagePixels(std::shared_ptr<Scene>& scene, int heightResolution);
-
-	//used for multi threading to trace sections of pixels at a time
-	void traceSection(std::vector<std::shared_ptr<Pixel>> pixels, int start, int count, std::shared_ptr<Scene> scene);
-
-	glm::vec3 average(std::vector<glm::vec3> traces);
 
 	//performs the tracing and checks for intersection of surfaces
 	glm::vec3 trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scene, int depth);
+	//used for multi threading to trace chunks of pixels in parallel
+	void traceChunk(std::vector<std::shared_ptr<Pixel>> pixels, int start, int count, std::shared_ptr<Scene> scene);
+
 	//calculates the shadows 
 	glm::vec3 lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersection, std::shared_ptr<Surface> surface,
 		glm::vec3 norm, glm::vec3 rayDir);
@@ -32,8 +33,10 @@ public:
 	glm::vec3 calculatePhong(std::shared_ptr<Light> light, std::shared_ptr<Ray> ray, 
 		std::shared_ptr<Surface> surface, glm::vec3 norm, glm::vec3 rayDir);
 	//generates the ray and its direction from each pixel
-	std::vector<std::shared_ptr<Ray>> generateRays(std::shared_ptr<Scene> scene, std::shared_ptr<Pixel> pixel);
+	std::shared_ptr<Ray> generateRay(std::shared_ptr<Scene> scene, std::shared_ptr<Pixel> pixel);
 
 private:
 
+	std::shared_ptr<Ray> getReflectRay(glm::vec3 rayDirection, glm::vec3 intersection, glm::vec3 norm);
+	float m_recursionDepth;
 };

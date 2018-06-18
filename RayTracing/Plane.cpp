@@ -8,10 +8,12 @@ Plane::~Plane()
 {
 }
 
+//help for this function from http://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
 bool Plane::hit(std::shared_ptr<Ray> ray, float& t, glm::vec3& norm)
 {
 	float denom = glm::dot(m_normal, ray->getDirection());
 
+	//1e-6 is used to check if the denominator is a very small value above zero
 	if (abs(denom) > 1e-6) 
 	{
 
@@ -20,7 +22,8 @@ bool Plane::hit(std::shared_ptr<Ray> ray, float& t, glm::vec3& norm)
 		// Calculate normal
 		norm = m_normal;
 
-		return (t >= 0);
+		if (t >= 0)
+			return denom;
 	}
 
 	return false;

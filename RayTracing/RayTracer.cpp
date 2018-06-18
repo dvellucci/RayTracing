@@ -1,14 +1,6 @@
 #include "RayTracer.h"
-#include <chrono>
-#include <thread>
-#include <mutex>
 
-std::mutex mtx;
-
-#define EPSILON 0.000001
-#define DMAX 2
-
-RayTracer::RayTracer()
+RayTracer::RayTracer() : m_recursionDepth(2.0f)
 {
 }
 
@@ -16,57 +8,34 @@ RayTracer::~RayTracer()
 {
 }
 
-void RayTracer::traceSection(std::vector<std::shared_ptr<Pixel>> pixels, int start, int count, std::shared_ptr<Scene> scene)
+//traces only a section of the pixels. Used for multi-threading
+void RayTracer::traceChunk(std::vector<std::shared_ptr<Pixel>> pixels, int start, int count, std::shared_ptr<Scene> scene)
 {
 	for (int i = start; i < start + count; ++i)
 	{
-		std::vector<std::shared_ptr<Ray>> rays = generateRays(scene, pixels[i]);
-		std::vector<glm::vec3> traces;
-
-		for (auto ray : rays)
-		{
-			traces.push_back(trace(ray, scene, 0));
-		}
-
-		pixels[i]->m_color = average(traces);
+		std::shared_ptr<Ray> ray = generateRay(scene, pixels[i]);
+		pixels[i]->m_color = trace(ray, scene, 0);
 	}
-}
-
-glm::vec3 RayTracer::average(std::vector<glm::vec3> traces)
-{
-	float r = 0.0f, g = 0.0f, b = 0.0f;
-	for (auto trace : traces) {
-		r += trace.r;
-		g += trace.g;
-		b += trace.b;
-	}
-	size_t s = traces.size();
-	r /= s;
-	g /= s;
-	b /= s;
-	return glm::vec3(r, g, b);
 }
 
 glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scene, int depth)
 {
-	if (depth > DMAX)
-		return scene->backgroundColor;
-
-	float t;
-	float tmin = FLT_MAX;
-	glm::vec3 n, norm;
+	float t_temp;
+	float t_value = FLT_MAX;
+	glm::vec3 tempNormal, normal;
 	std::shared_ptr<Surface> surface;
 
 	//intersect the spheres
 	for(int i = 0; i < scene->m_spheres.size(); i++)
 	{
 		auto sphere = scene->m_spheres[i];
-		if (sphere->hit(ray, t, n))
+		if (sphere->hit(ray, t_temp, tempNormal))
 		{
-			if (t < tmin)
+			if (t_temp < t_value)
 			{
-				tmin = t;
-				norm = n;
+				t_value = t_temp;
+				normal = tempNormal;
+				//save the surface so it can be passed into the light function
 				surface = sphere;
 			}
 		}
@@ -76,25 +45,28 @@ glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scen
 	for (int i = 0; i < scene->m_planes.size(); i++)
 	{
 		auto plane = scene->m_planes[i];
-		if (plane->hit(ray, t, n))
+		if (plane->hit(ray, t_temp, tempNormal))
 		{
-			if (t < tmin)
+			if (t_temp < t_value)
 			{
-				tmin = t;
-				norm = n;
+				t_value = t_temp;
+				normal = tempNormal;
+				//save the surface so it can be passed into the light function
 				surface = plane;
 			}
 		}
 	}
 
-	if (abs(tmin - FLT_MAX) < EPSILON) 
-	{
-		return scene->backgroundColor;
-	}
+	if (depth > m_recursionDepth || (abs(t_value - FLT_MAX) < FLT_MIN))
+		return glm::vec3(0.1f, 0.1f, 0.1f);
 
-	glm::vec3 intersection = ray->m_origin + tmin * ray->m_dir;
+	glm::vec3 intersection = ray->getOrigin() + t_value * ray->getDirection();
 
-	glm::vec3 color = lightColor(scene, intersection, surface, norm, -ray->getDirection());
+	//get the reflect ray
+	auto reflectRay = getReflectRay(ray->getDirection(), intersection, normal);
+
+	//glm::vec3 color = lightColor(scene, intersection, surface, normal, -ray->getDirection());
+	glm::vec3 color = lightColor(scene, intersection, surface, normal, -ray->getDirection()) + 0.15f * trace(reflectRay, scene, depth + 1);
 
 	return color;
 }
@@ -105,47 +77,42 @@ glm::vec3 RayTracer::lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersec
 	glm::vec3 color = surface->getAmbience();
 	for (auto light : scene->m_lights)
 	{
-		float t;
 		float tmin = glm::distance(light->getPosition(), intersection);
-		glm::vec3 n;
+		glm::vec3 normal;
+
 		bool shadowed = false;
+
+		//create the shadow ray
 		glm::vec3 shadowDir = glm::normalize(light->getPosition() - intersection);
+		glm::vec3 origin = intersection + 0.1f * shadowDir;
+		auto shadowRay = std::make_shared<Ray>(origin, shadowDir);
 
-		float o = 0.1f;
-		glm::vec3 origOffset = o * shadowDir;
-
-		auto ray = std::make_shared<Ray>(intersection + origOffset, shadowDir);
-
+		//check for spheres that are shadowed
 		for (int i = 0; i < scene->m_spheres.size(); i++) 
 		{
 			auto sphere = scene->m_spheres[i];
-			if (sphere->hit(ray, t, n)) 
+			if (sphere->hit(shadowRay, tmin, normal))
 			{
-				if (t < tmin) 
-				{
-					shadowed = true;
-					break;
-				}
+				shadowed = true;
+				break;
 			}
 		}
 
+		//check for planes that are shadowed
 		for (int i = 0; i < scene->m_planes.size(); i++)
 		{
 			auto plane = scene->m_planes[i];
-			if (plane->hit(ray, t, n))
+			if (plane->hit(shadowRay, tmin, normal))
 			{
-				if (t < tmin)
-				{
-					shadowed = true;
-					break;
-				}
+				shadowed = true;
+				break;
 			}
 		}
 
 		//calculate phong lighting if something is not shadowed
 		if (!shadowed)
 		{
-			color += calculatePhong(light, ray, surface, norm, rayDir);
+			color += calculatePhong(light, shadowRay, surface, norm, rayDir);
 		}
 
 	}
@@ -157,58 +124,68 @@ glm::vec3 RayTracer::lightColor(std::shared_ptr<Scene> scene, glm::vec3 intersec
 glm::vec3 RayTracer::calculatePhong(std::shared_ptr<Light> light, std::shared_ptr<Ray> ray,
 	std::shared_ptr<Surface> surface, glm::vec3 norm, glm::vec3 rayDir)
 {
-	glm::vec3 l_vector = ray->getDirection();
-	glm::vec3 reflectionVector = 2 * glm::dot(l_vector, norm) * norm - l_vector;
+	glm::vec3 lightDirection = ray->getDirection();
+	glm::vec3 reflectionVector = 2 * glm::dot(lightDirection, norm) * norm - lightDirection;
 
-	float ldotn = glm::dot(l_vector, norm);
 	float reflectDot = glm::dot(reflectionVector, rayDir);
 
-	glm::vec3 spec = surface->getSpecular() * pow(glm::max(0.0f, reflectDot), surface->getShiny());
-	glm::vec3 dif = surface->getDiffuse() * abs(ldotn);
+	glm::vec3 specular = surface->getSpecular() * pow(glm::max(0.0f, reflectDot), surface->getShiny());
+	glm::vec3 diffuse = surface->getDiffuse() * glm::dot(lightDirection, norm);
 
-	glm::vec3 color = light->getColor() * (dif + spec);
+	glm::vec3 color = light->getColor() * (diffuse + specular);
 
 	return color; 
 }
 
 //generates the ray and its direction from each pixel
-std::vector<std::shared_ptr<Ray>> RayTracer::generateRays(std::shared_ptr<Scene> scene, std::shared_ptr<Pixel> pixel)
+std::shared_ptr<Ray> RayTracer::generateRay(std::shared_ptr<Scene> scene, std::shared_ptr<Pixel> pixel)
 {
 	std::vector<std::shared_ptr<Ray>> rays;
 	glm::vec3 direction = glm::normalize(pixel->m_pos - scene->m_camera->getPosition());
 	rays.push_back(std::make_shared<Ray>(scene->m_camera->getPosition(), direction));
 
-	return rays;
+	return std::make_shared<Ray>(scene->m_camera->getPosition(), direction);
 }
 
-//returns the image with the pixel dimensions set
+std::shared_ptr<Ray> RayTracer::getReflectRay(glm::vec3 rayDirection, glm::vec3 intersection, glm::vec3 norm)
+{
+	//get the reflection ray direction, the origin of the ray and create it
+	glm::vec3 reflectDirection = -2 * glm::dot(rayDirection, norm) * norm + (rayDirection);
+	//get the origin but add an offset to it so the ray doesn't hit the same object
+	//credit for reflect ray origin formula: https://blog.demofox.org/2017/01/09/raytracing-reflection-refraction-fresnel-total-internal-reflection-and-beers-law/
+	glm::vec3 reflectRayOrigin = intersection + 0.1f * reflectDirection;
+	auto reflectRay = std::make_shared<Ray>(reflectRayOrigin, reflectDirection);
+	return reflectRay;
+}
+
+//returns the image and it's pixels with proper dimensions
 std::shared_ptr<Image> RayTracer::genImagePixels(std::shared_ptr<Scene>& scene, int heightResolution)
 {
 	std::vector<std::shared_ptr<Pixel>> pixels;
 
-	float height = float(2.0f * scene->m_camera->getFocalLength() * tan((scene->m_camera->getFOV() / 2.0f) * M_PI / 180.0f));
-	float width = scene->m_camera->getAspectRatio() * height;
+	float imagePlaneHeight = float(2.0f * scene->m_camera->getFocalLength() * tan((scene->m_camera->getFOV() / 2.0f) * M_PI / 180.0f));
+	float imagePlaneWidth = scene->m_camera->getAspectRatio() * imagePlaneHeight;
 
 	int widthResolution = int(heightResolution * scene->m_camera->getAspectRatio());
 
-	float pixelWidth = width / widthResolution;
-	float pixelHeight = height / heightResolution;
+	float pixelWidth = imagePlaneWidth / widthResolution;
+	float pixelHeight = imagePlaneHeight / heightResolution;
 
-	glm::vec3 iCenter = glm::vec3(scene->m_camera->getPosition().x, scene->m_camera->getPosition().y, 
-		scene->m_camera->getPosition().z - scene->m_camera->getFocalLength());
-
+	//convert to world coordinates
+	//credit: http://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-generating-camera-rays/generating-camera-rays
 	for (int y = 0; y < heightResolution; ++y)
 	{
 		for (int x = 0; x < widthResolution; ++x)
 		{
-			glm::vec3 pixelPos = {
-				(iCenter.x - width / 2) + (pixelWidth / 2) + (x * pixelWidth),
-				(iCenter.y + height / 2) - (pixelHeight / 2) - (y * pixelHeight),
-				iCenter.z
+	
+			glm::vec3 pixelPosition = {
+				(scene->m_camera->getPosition().x - imagePlaneWidth / 2) + (pixelWidth / 2) + (x * pixelWidth),
+				(scene->m_camera->getPosition().y + imagePlaneHeight / 2) - (pixelHeight / 2) - (y * pixelHeight),
+				scene->m_camera->getPosition().z - scene->m_camera->getFocalLength()
 			};
 
 			auto pixel = std::make_shared<Pixel>();
- 			pixel->m_pos = pixelPos;
+ 			pixel->m_pos = pixelPosition;
 			pixels.push_back(pixel);
 		}
 	}

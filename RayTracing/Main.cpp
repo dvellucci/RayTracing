@@ -15,10 +15,15 @@ std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr
 
 int main()
 {
-	FileReader reader("scene_data/test.txt");
+	int userOption = 0;
+	std::string sceneFile = "";
 
-	//set resolution
-	int nx = 533;
+	std::cout << "Pick a scene to render: ";
+	std::cin >> userOption;
+	sceneFile = "scene" + std::to_string(userOption) + ".txt";
+	FileReader reader("scene_data/"+ sceneFile);
+
+	//height resolution
 	int ny = 400;
 
 	//get the scene with all the object data
@@ -49,7 +54,8 @@ int main()
 		}
 	}
 
-	cImage.save("scene_renders/scene.bmp");
+	std::string savePath = "scene_renders/" + sceneFile + ".bmp";
+	cImage.save(savePath.c_str());
 
 	//render the image with CImg
 	bool window = true;
@@ -67,25 +73,20 @@ int main()
 //render the scene with multi threading
 std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int heightResolution)
 {
-	auto image = tracer->genImagePixels(scene, heightResolution);
+	auto image = scene->setUpScene(heightResolution);
 	int size = image->m_width * image->m_height;
 
-	std::thread t0(&RayTracer::traceSection, tracer, image->m_pixels, 0, size / 8, scene);
-	std::thread t1(&RayTracer::traceSection, tracer, image->m_pixels, size / 8, size / 8, scene);
-	std::thread t2(&RayTracer::traceSection, tracer, image->m_pixels, size / 4, size / 8, scene);
-	std::thread t3(&RayTracer::traceSection, tracer, image->m_pixels, 3 * size / 8, size / 8, scene);
-	std::thread t4(&RayTracer::traceSection, tracer, image->m_pixels, size / 2, size / 8, scene);
-	std::thread t5(&RayTracer::traceSection, tracer, image->m_pixels, 5 * size / 8, size / 8, scene);
-	std::thread t6(&RayTracer::traceSection, tracer, image->m_pixels, 3 * size / 4, size / 8, scene);
-	std::thread t7(&RayTracer::traceSection, tracer, image->m_pixels, 7 * size / 8, size / 8, scene);
-	t0.join();
-	t1.join();
-	t2.join();
-	t3.join();
-	t4.join();
-	t5.join();
-	t6.join();
-	t7.join();
+	std::vector<std::thread> threads;
+	int chunk = size / 8;
+	for (int i = 0; i < 8; i++)
+	{
+		threads.push_back(std::thread(&RayTracer::traceChunk, tracer, image->m_pixels, i * chunk, chunk, scene));
+	}
+
+	for (int i = 0; i < threads.size(); i++)
+	{
+		threads[i].join();
+	}
 
 	return image;
 }
