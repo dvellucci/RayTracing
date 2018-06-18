@@ -12,6 +12,8 @@ public:
 	~Surface();
 
 	virtual bool hit(std::shared_ptr<Ray> ray, float &t, glm::vec3& norm) = 0;
+
+	//set all the color components for the surfaces
 	void setAmbience(glm::vec3 amb) { m_ambColor = amb; }
 	void setDiffuse(glm::vec3 diff) { m_diffColor = diff; }
 	void setSpecular(glm::vec3 spec) { m_specColor = spec; }

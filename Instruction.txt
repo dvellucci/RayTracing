@@ -1,0 +1,13 @@
+To start the project, run the program and you will be asked which file you want to render.
+The program assumes the files are named as "sceneX" where X is just a number so all you have to enter is a number. In this case 
+there are 5 scene files included in the project so just a number between [1,5]. 
+
+The base resolution I render it iS a height resolution of 400. If you would like to change it, change the heightResolution
+variable on line 27 in main.cpp.
+
+For extra credit, I added reflections to the project. This is included in RayTracer.cpp. 
+
+To run the project without reflections, comment the line 71 in RayTracer.cpp and un-comment the line 70. 
+
+The txt files that are read are in the scene_data folder. 
+The bmp files generated with Cimg are in the scene_renders folder. 

@@ -18,13 +18,13 @@ int main()
 	int userOption = 0;
 	std::string sceneFile = "";
 
-	std::cout << "Pick a scene to render: ";
+	std::cout << "Pick a scene to render (Enter a number in the range [1, 5]: ";
 	std::cin >> userOption;
 	sceneFile = "scene" + std::to_string(userOption) + ".txt";
 	FileReader reader("scene_data/"+ sceneFile);
 
 	//height resolution
-	int ny = 400;
+	int heightResolution = 400;
 
 	//get the scene with all the object data
 	//sets the camera and all the surface dimensions of each object in the scene
@@ -34,11 +34,12 @@ int main()
 	auto rayTracer = std::make_shared<RayTracer>();
 
 	//generate the size of the image and the pixels
-	auto image = renderScene(scene, rayTracer, ny);
+	auto image = renderScene(scene, rayTracer, heightResolution);
 
 	//create CImg object
 	cimg_library::CImg<float> cImage(image->m_width, image->m_height, 1, 3, 0);
 
+	//read the pixels and generate the cImg image
 	for (int y = 0; y < image->m_height; y++)
 	{
 		for (int x = 0; x < image->m_width; x++)
@@ -76,6 +77,7 @@ std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr
 	auto image = scene->setUpScene(heightResolution);
 	int size = image->m_width * image->m_height;
 
+	//generate the threads and call traceChunk for each run
 	std::vector<std::thread> threads;
 	int chunk = size / 8;
 	for (int i = 0; i < 8; i++)
@@ -83,6 +85,7 @@ std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr
 		threads.push_back(std::thread(&RayTracer::traceChunk, tracer, image->m_pixels, i * chunk, chunk, scene));
 	}
 
+	//run the generated threads
 	for (int i = 0; i < threads.size(); i++)
 	{
 		threads[i].join();
