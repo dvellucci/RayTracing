@@ -11,7 +11,7 @@
 #include <thread>
 #include <mutex>
 
-std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int heightResolution);
+std::shared_ptr<Image> renderScene(const std::shared_ptr<Scene>& scene, const std::shared_ptr<RayTracer>& tracer, int heightResolution);
 
 int main()
 {
@@ -72,15 +72,16 @@ int main()
 }
 
 //render the scene with multi threading
-std::shared_ptr<Image> renderScene(std::shared_ptr<Scene> scene, std::shared_ptr<RayTracer> tracer, int heightResolution)
+std::shared_ptr<Image> renderScene(const std::shared_ptr<Scene>& scene, const std::shared_ptr<RayTracer>& tracer, int heightResolution)
 {
 	auto image = scene->setUpScene(heightResolution);
 	int size = image->m_width * image->m_height;
 
 	//generate the threads and call traceChunk for each run
 	std::vector<std::thread> threads;
-	int chunk = size / 8;
-	for (int i = 0; i < 8; i++)
+	int numOfThreads = 8;
+	int chunk = size / numOfThreads;
+	for (int i = 0; i < numOfThreads; i++)
 	{
 		threads.push_back(std::thread(&RayTracer::traceChunk, tracer, image->m_pixels, i * chunk, chunk, scene));
 	}

@@ -9,7 +9,7 @@ RayTracer::~RayTracer()
 }
 
 //traces only a section of the pixels. Used for multi-threading
-void RayTracer::traceChunk(std::vector<std::shared_ptr<Pixel>> pixels, int start, int stride, std::shared_ptr<Scene> scene)
+void RayTracer::traceChunk(std::vector<std::shared_ptr<Pixel>> pixels, int start, int stride, const std::shared_ptr<Scene>& scene)
 {
 	//trace the chunk of pixels specified by the start and count variables
 	for (int i = start; i < start + stride; ++i)
@@ -73,7 +73,7 @@ glm::vec3 RayTracer::trace(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scen
 	return color;
 }
 
-glm::vec3 RayTracer::surfaceColor(std::shared_ptr<Scene> scene, glm::vec3 intersection, std::shared_ptr<Surface> surface,
+glm::vec3 RayTracer::surfaceColor(std::shared_ptr<Scene> scene, glm::vec3 intersection, const std::shared_ptr<Surface>& surface,
 	glm::vec3 norm, glm::vec3 rayDir)
 {		
 	glm::vec3 color = surface->getAmbience();
@@ -130,7 +130,6 @@ glm::vec3 RayTracer::calculatePhong(std::shared_ptr<Light> light, std::shared_pt
 	glm::vec3 reflectionVector = 2 * glm::dot(lightDirection, norm) * norm - lightDirection;
 
 	float reflectDot = glm::dot(reflectionVector, rayDir);
-
 	glm::vec3 specular = surface->getSpecular() * pow(glm::max(0.0f, reflectDot), surface->getShiny());
 	glm::vec3 diffuse = surface->getDiffuse() * glm::dot(lightDirection, norm);
 
