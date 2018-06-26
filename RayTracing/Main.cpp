@@ -20,8 +20,8 @@ int main()
 
 	std::cout << "Pick a scene to render (Enter a number in the range [1, 5]: ";
 	std::cin >> userOption;
-	sceneFile = "scene" + std::to_string(userOption) + ".txt";
-	FileReader reader("scene_data/"+ sceneFile);
+	sceneFile = "scene" + std::to_string(userOption);
+	FileReader reader("scene_data/"+ sceneFile + ".txt");
 
 	//height resolution
 	int heightResolution = 400;
